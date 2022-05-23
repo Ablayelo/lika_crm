@@ -59,9 +59,19 @@ __all__ = (
 )
 
 
+class BrickLocationsWidget(core_widgets.OrderedMultipleChoiceWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            available_title=_('Available blocks'),
+            enabled_title=_('Chosen blocks'),
+            *args, **kwargs
+        )
+
+
 class BrickLocationsField(forms.MultipleChoiceField):
     def __init__(self, *, required=False, choices=(),
-                 widget=core_widgets.OrderedMultipleChoiceWidget,
+                 # widget=core_widgets.OrderedMultipleChoiceWidget,
+                 widget=BrickLocationsWidget,
                  **kwargs):
         super().__init__(
             required=required, choices=choices, widget=widget,

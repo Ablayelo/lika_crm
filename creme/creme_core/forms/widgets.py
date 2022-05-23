@@ -19,6 +19,7 @@
 ################################################################################
 
 import copy
+import json
 import logging
 from datetime import date
 from functools import partial
@@ -1187,32 +1188,57 @@ class UnorderedMultipleChoiceWidget(EnhancedSelectOptions, widgets.SelectMultipl
 class OrderedMultipleChoiceWidget(widgets.SelectMultiple):
     template_name = 'creme_core/forms/widgets/ordered-multiple.html'
 
+    def __init__(self,
+                 available_title=gettext_lazy('Available'),
+                 enabled_title=gettext_lazy('Chosen'),
+                 *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.available_title = available_title
+        self.enabled_title = enabled_title
+
+    # def format_value(self, value):
+    #     return json.dumps(super().format_value(value))
+
     def get_context(self, name, value, attrs):
         context = super().get_context(name=name, value=value, attrs=attrs)
 
-        context['widget']['orders'] = {
-            opt_value: order + 1
-            for order, opt_value in enumerate(value or ())
-        }
+        # context['widget']['orders'] = {
+        #     opt_value: order + 1
+        #     for order, opt_value in enumerate(value or ())
+        # }
+        widget_type = 'ui-creme-ordered'
+        w_ctxt = context['widget']
+        final_attrs = w_ctxt['attrs']
+        base_css = (
+            'ordered-widget ui-creme-widget widget-auto '
+            if final_attrs.pop('auto', True) else
+            'ordered-widget ui-creme-widget '
+        )
+        final_attrs['class'] = f"{base_css} {final_attrs.get('class', '')} {widget_type}".strip()
+        final_attrs['widget'] = widget_type  # TODO: data-widget
+
+        w_ctxt['available_title'] = self.available_title
+        w_ctxt['enabled_title'] = self.enabled_title
 
         return context
 
     def value_from_datadict(self, data, files, name):
-        prefix_check = f'{name}_check_'
-        prefix_order = f'{name}_order_'
-        prefix_value = f'{name}_value_'
-
-        selected = []
-        for key, value in data.items():
-            if key.startswith(prefix_check):
-                index = key[len(prefix_check):]  # In fact not an int...
-                order = int(data.get(prefix_order + index) or 0)
-                value = data[prefix_value + index]
-                selected.append((order, value))
-
-        selected.sort(key=lambda i: i[0])
-
-        return [val for _order, val in selected]
+        # prefix_check = f'{name}_check_'
+        # prefix_order = f'{name}_order_'
+        # prefix_value = f'{name}_value_'
+        #
+        # selected = []
+        # for key, value in data.items():
+        #     if key.startswith(prefix_check):
+        #         index = key[len(prefix_check):]  # In fact not an int...
+        #         order = int(data.get(prefix_order + index) or 0)
+        #         value = data[prefix_value + index]
+        #         selected.append((order, value))
+        #
+        # selected.sort(key=lambda i: i[0])
+        #
+        # return [val for _order, val in selected]
+        return json.loads(data.get(name))
 
 
 class Label(widgets.TextInput):
