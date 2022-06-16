@@ -40,12 +40,13 @@ creme.widget.DynamicSelect = creme.widget.declare('ui-creme-dselect', {
         this._enabled = creme.object.isFalse(options.disabled) && element.is(':not([disabled])');
         this._readonly = creme.object.isTrue(options.readonly) && element.is('[readonly]');
         this._multiple = creme.object.isTrue(options.multiple) && element.is('[multiple]');
+        this._autocomplete = creme.object.isTrue(options.autocomplete) && element.is('[autocomplete]');
         this._url = new creme.utils.Template(options.url);
         this._filter = new creme.utils.Template(options.filter);
         this._dependencies = Array.isArray(options.dependencies) ? options.dependencies : (options.dependencies ? options.dependencies.split(' ') : []);
 
-        this._init_model(element, options);
-        this._init_autocomplete(element, options);
+        this._initModel(element, options);
+        this._initAutocomplete(element, options);
 
         this.reload(element, {}, cb, cb, sync);
 
@@ -53,12 +54,12 @@ creme.widget.DynamicSelect = creme.widget.declare('ui-creme-dselect', {
     },
 
     _destroy: function(element) {
-        if (this._autocomplete) {
-            this._autocomplete.deactivate();
+        if (this._select2) {
+            this._select2.unbind();
         }
     },
 
-    _init_model: function(element, options) {
+    _initModel: function(element, options) {
         var self = this;
         var converter = this._converter = options.datatype === 'json' ? function(data) { return creme.widget.cleanval(data, null); } : undefined;
         var initial = creme.model.ChoiceGroupRenderer.parse(element, converter);
@@ -78,28 +79,20 @@ creme.widget.DynamicSelect = creme.widget.declare('ui-creme-dselect', {
         this._renderer = new creme.model.ChoiceGroupRenderer(element, this._filtered);
     },
 
-    _init_autocomplete: function(element, options) {
-        if (Object.isNone(options.autocomplete)) {
-            return;
+    _initAutocomplete: function(element, options) {
+        if (this._autocomplete) {
+            this._select2 = new creme.form.Select2({
+                multiple: options.multiple,
+                sortable: options.sortable
+            }).bind(element);
         }
+    },
 
-        var chosen_options = {};
-
-        try {
-            chosen_options = options['autocomplete-options'] || '';
-            chosen_options = chosen_options.length ? creme.object.build_callback(chosen_options)() : {};
-        } catch (e) {
-            chosen_options = {};
+    _updateAutocomplete: function(element) {
+        console.log(this._model.all());
+        if (this._select2) {
+            this._select2.refresh(this._model.all());
         }
-
-        chosen_options = $.extend({
-            multiple: options.multiple !== undefined,
-            sortable: options.sortable !== undefined,
-            search_contains: true
-        }, chosen_options);
-
-        this._autocomplete = new creme.component.Chosen(chosen_options);
-        this._autocomplete.activate(element);
     },
 
     _updateDisabledState: function(element) {
@@ -114,15 +107,9 @@ creme.widget.DynamicSelect = creme.widget.declare('ui-creme-dselect', {
         element.toggleAttr('readonly', readonly);
     },
 
-    _updateAutocomplete: function() {
-        if (this._autocomplete) {
-            this._autocomplete.refresh();
-        }
-    },
-
     _onModelChange: function(element, old) {
         this._updateDisabledState(element);
-        this._updateAutocomplete();
+        this._updateAutocomplete(element);
     },
 
     _modelConverter: function(rawdata) {
