@@ -5,6 +5,8 @@ from functools import partial
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.backends.base import SessionBase
+from django.test import RequestFactory
 from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext as _
@@ -12,6 +14,7 @@ from django.utils.translation import ngettext
 
 from creme.creme_core.auth.entity_credentials import EntityCredentials
 from creme.creme_core.constants import REL_SUB_HAS
+from creme.creme_core.gui.bricks import BricksManager
 from creme.creme_core.models import (
     BrickDetailviewLocation,
     BrickHomeLocation,
@@ -67,6 +70,48 @@ class ActivityBricksTestCase(BrickTestCaseMixin, _ActivitiesTestCase):
     @staticmethod
     def _build_add_subjects_url(activity):
         return reverse('activities__add_subjects', args=(activity.id,))
+
+    @skipIfCustomContact
+    def test_participants_brick(self):
+        ParticipantsBrick.page_size = max(4, settings.BLOCK_SIZE)
+
+        user = self.login()
+        activity = self._create_meeting()
+
+        create_contact = partial(Contact.objects.create, user=user)
+        c1 = user.linked_contact
+        c2 = create_contact(first_name='Musashi', last_name='Miyamoto')
+        c3 = create_contact(first_name='Kojiro',  last_name='Sasaki')
+
+        create_rel = partial(
+            Relation.objects.create,
+            user=user, object_entity=activity,
+        )
+        create_rel(subject_entity=c1, type_id=REL_SUB_PART_2_ACTIVITY)
+        create_rel(subject_entity=c2, type_id=REL_SUB_PART_2_ACTIVITY)
+        create_rel(subject_entity=c3, type_id=REL_SUB_ACTIVITY_SUBJECT)
+
+        brick = ParticipantsBrick()
+
+        request = RequestFactory().get(activity.get_absolute_url())
+        request.session = SessionBase()
+        request.user = user
+
+        # assertNum
+        render = brick.detailview_display({
+            'object': activity,
+            'request': request,
+            'user': user,
+            BricksManager.var_name: BricksManager(),
+        })
+
+        tree = self.get_html_tree(render)
+        brick_node = self.get_brick_node(tree, ParticipantsBrick.id_)
+        self.assertInstanceLink(brick_node, c1)
+        self.assertInstanceLink(brick_node, c2)
+        self.assertNoInstanceLink(brick_node, c3)
+
+    # TODO: assertNumQueries on other type of Bricks
 
     @skipIfCustomContact
     def test_bricks_activity(self):
